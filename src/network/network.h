@@ -121,6 +121,8 @@ namespace Network {
     Base64Key key;
     Session session;
 
+    const char *interface;
+
     void setup( void );
 
     Direction direction;

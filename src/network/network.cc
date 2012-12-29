@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -152,6 +153,16 @@ void Connection::setup( void )
   if ( setsockopt( sock, IPPROTO_IP, IP_TOS, &dscp, 1) < 0 ) {
     //    perror( "setsockopt( IP_TOS )" );
   }
+
+  /* Bind socket to interface */
+  if ( (this->interface) == NULL  ) return;
+  int s;
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), this->interface );
+  if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) < 0) {
+    throw NetworkException( "setsockopt", errno );
+  }
 }
 
 Connection::Connection( const char *desired_ip, const char *desired_port ) /* server */
@@ -162,6 +173,7 @@ Connection::Connection( const char *desired_ip, const char *desired_port ) /* se
     MTU( SEND_MTU ),
     key(),
     session( key ),
+    interface( "eth0" ),
     direction( TO_CLIENT ),
     next_seq( 0 ),
     saved_timestamp( -1 ),
@@ -277,6 +289,7 @@ Connection::Connection( const char *key_str, const char *ip, int port ) /* clien
     MTU( SEND_MTU ),
     key( key_str ),
     session( key ),
+    interface( "usb0" ),
     direction( TO_SERVER ),
     next_seq( 0 ),
     saved_timestamp( -1 ),
