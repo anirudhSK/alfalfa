@@ -156,12 +156,12 @@ void Connection::setup( void )
 
   /* Bind socket to interface */
   if ( (this->interface) == NULL  ) return;
-  int s;
   struct ifreq ifr;
   memset(&ifr, 0, sizeof(ifr));
   snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), this->interface );
-  if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) < 0) {
-    throw NetworkException( "setsockopt", errno );
+  if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) < 0) {
+    perror( "setsockopt( SO_BINDTODEVICE )" );
+    exit(-1);
   }
 }
 
