@@ -5,6 +5,7 @@
 
 #include "sproutconn.h"
 #include "select.h"
+#include <sys/time.h>
 
 using namespace std;
 using namespace Network;
@@ -60,6 +61,7 @@ int main( int argc, char *argv[] )
   uint64_t time_of_next_transmission = timestamp() + fallback_interval;
 
   fprintf( stderr, "Looping...\n" );  
+  unsigned long int cumulative_bytes = 0;
 
   /* loop */
   while ( 1 ) {
@@ -101,8 +103,12 @@ int main( int argc, char *argv[] )
     }
 
     /* receive */
+    struct timeval tv;
     if ( sel.read( net->fd() ) ) {
       string packet( net->recv() );
+      gettimeofday( &tv, NULL );
+      cumulative_bytes += packet.size();
+      fprintf( stderr, "Rx packet : %lu bytes, cumulative : %lu bytes at time %f \n", packet.size(), cumulative_bytes, (double) tv.tv_sec+tv.tv_usec/1.0e6 );
     }
   }
 }
