@@ -124,7 +124,7 @@ int main( int argc, char *argv[] )
       string packet( net->recv() );
 
       /* write into tap0 */
-      write( tap_fd, &packet, packet.size() );
+      write( tap_fd, packet.c_str(), packet.size() );
 
       gettimeofday( &tv, NULL );
       cumulative_bytes += packet.size();
