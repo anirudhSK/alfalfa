@@ -133,7 +133,7 @@ int main( int argc, char *argv[] )
 
     /* read from tap0 */
     if ( sel.read( tap_fd ) ) {
-      char buffer[1500];
+      char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
       ingress_queue.push( packet );
