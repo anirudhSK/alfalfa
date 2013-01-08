@@ -1,0 +1,6 @@
+package packet;
+
+message PartialPacket {
+	required uint32 bytes_to_follow = 1;
+        required bytes payload = 2;
+}

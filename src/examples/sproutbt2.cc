@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <list>
 
+#include "partial-packet.pb.h"
 #include "sproutconn.h"
 #include "select.h"
 #include <sys/time.h>
@@ -10,6 +11,7 @@
 
 using namespace std;
 using namespace Network;
+using namespace packet;
 
 int main( int argc, char *argv[] )
 {
@@ -71,6 +73,7 @@ int main( int argc, char *argv[] )
   fprintf( stderr, "Looping...\n" );  
   unsigned long int cumulative_bytes = 0;
 
+  std::string limbo;
   /* loop */
   while ( 1 ) {
     int bytes_to_send = net->window_size();
@@ -79,10 +82,19 @@ int main( int argc, char *argv[] )
     if ( ( bytes_to_send > 0 ) || ( time_of_next_transmission <= timestamp() ) ) {
       do {
 	if ( !ingress_queue.empty() ) {
+	  if (bytes_to_send == 0) {
+		net->send( string(0,'x'), fallback_interval );
+		break;
+	  }
 	  string packet( ingress_queue.front() );
 	  if ( bytes_to_send < packet.size() ) {
-		net->send( string(0,'x'), fallback_interval );
-	  	break;
+		packet::PartialPacket par_pkt;
+		par_pkt.set_payload( packet.substr( 0, bytes_to_send ) );
+		par_pkt.set_bytes_to_follow( packet.size() - bytes_to_send );
+		net->send( par_pkt.SerializeAsString(), fallback_interval );
+		ingress_queue.front() = packet.substr( bytes_to_send, packet.size() - bytes_to_send );
+		fprintf( stderr, "SENDING snipped packet of size %d, leftover %lu \n", bytes_to_send, ingress_queue.front().size() );
+		break;
 	  } else {
 	  	bytes_to_send -= packet.size();
 	  }
@@ -91,7 +103,11 @@ int main( int argc, char *argv[] )
 	  if ( bytes_to_send == 0 || ingress_queue.empty() ) {
 	  	time_to_next = fallback_interval;
 	  }
-	  net->send( packet, time_to_next );
+	  packet::PartialPacket par_pkt;
+	  par_pkt.set_payload( packet );
+	  par_pkt.set_bytes_to_follow( 0 );
+	  net->send( par_pkt.SerializeAsString(), time_to_next );
+	  fprintf( stderr, "SENDING whole packet is size %lu \n", packet.size() );
 	  ingress_queue.pop();
         }
         else {
@@ -122,9 +138,23 @@ int main( int argc, char *argv[] )
     struct timeval tv;
     if ( sel.read( net->fd() ) ) {
       string packet( net->recv() );
+      if (packet.size() == 0 ) {
+          continue;
+      }
 
-      /* write into tap0 */
-      write( tap_fd, packet.c_str(), packet.size() );
+      packet::PartialPacket rx;
+      rx.ParseFromString( packet );
+
+      if ( rx.bytes_to_follow() != 0 ) {
+	limbo += rx.payload() ;
+	fprintf( stderr, "Still accumulating limbo, limbo size : %lu bytes to follow is %u \n", limbo.size(), rx.bytes_to_follow() );
+      }
+      else {
+	limbo += rx.payload() ;
+	write( tap_fd, limbo.c_str(), limbo.size() );
+	fprintf(stderr, "Received %lu bytes, written out of limbo %lu bytes\n", rx.payload().size(), limbo.size());
+	limbo = "";
+      }
 
       gettimeofday( &tv, NULL );
       cumulative_bytes += packet.size();
