@@ -3,15 +3,15 @@
 #include <assert.h>
 #include <list>
 
-#include "partial-packet.pb.h"
+#include "packet-fragment.pb.h"
 #include "sproutconn.h"
 #include "select.h"
 #include <sys/time.h>
 #include "tapdevice.hh"
+#include "reassembly.hh"
 
 using namespace std;
 using namespace Network;
-using namespace packet;
 
 int main( int argc, char *argv[] )
 {
@@ -26,7 +26,8 @@ int main( int argc, char *argv[] )
   int tap_fd = setup_tap();
 
   /* Queue incoming packets from tap0 */
-  std::queue<string> ingress_queue;
+  uint32_t count = 0;
+  std::queue<fragment::PacketFragment> ingress_queue;
 
   if ( argc > 1 ) {
     /* client */
@@ -70,47 +71,58 @@ int main( int argc, char *argv[] )
 
   uint64_t time_of_next_transmission = timestamp() + fallback_interval;
 
-  fprintf( stderr, "Looping...\n" );  
+  fprintf( stderr, "Looping...\n" );
   unsigned long int cumulative_bytes = 0;
 
-  std::string limbo;
+  /* book keeping for reassembly */
+  Reassembly reassembler;
+
   /* loop */
   while ( 1 ) {
-    int bytes_to_send = net->window_size();
+    uint32_t bytes_to_send = net->window_size();
 
-    /* actually send, maybe */
+    /* Action 1 : actually send, maybe */
     if ( ( bytes_to_send > 0 ) || ( time_of_next_transmission <= timestamp() ) ) {
       do {
-	if ( !ingress_queue.empty() ) {
-	  if (bytes_to_send == 0) {
-		net->send( string(0,'x'), fallback_interval );
-		break;
-	  }
-	  string packet( ingress_queue.front() );
-	  if ( bytes_to_send < packet.size() ) {
-		packet::PartialPacket par_pkt;
-		par_pkt.set_payload( packet.substr( 0, bytes_to_send ) );
-		par_pkt.set_bytes_to_follow( packet.size() - bytes_to_send );
-		net->send( par_pkt.SerializeAsString(), fallback_interval );
-		ingress_queue.front() = packet.substr( bytes_to_send, packet.size() - bytes_to_send );
-		fprintf( stderr, "SENDING snipped packet of size %d, leftover %lu \n", bytes_to_send, ingress_queue.front().size() );
-		break;
+        if ( !ingress_queue.empty() ) {
+          if (bytes_to_send == 0) {
+            net->send( string(0,'x'), fallback_interval );
+            break;
+          }
+
+          fragment::PacketFragment par_pkt = ingress_queue.front();
+          if ( bytes_to_send < par_pkt.payload().size() ) {
+            /* fragment par_pkt into 2 packets : a new "to_send" pkt and a modified HOL pkt */
+
+            /* new to_send */
+            fragment::PacketFragment to_send ;
+            to_send.set_id( par_pkt.id() );         /* same id on all fragments */
+            to_send.set_length( par_pkt.length() ); /* same length on all fragments */
+            to_send.set_payload( par_pkt.payload().substr( 0, bytes_to_send ) );/* fragment */
+            to_send.set_offset( par_pkt.offset() ); /* offset on first fragment */
+            to_send.set_more_frags( true );         /* Definitely set more_frags */
+            net->send( to_send.SerializeAsString(), fallback_interval );
+
+            /* modified HOL packet */
+            ingress_queue.front().set_offset( par_pkt.offset() + bytes_to_send );
+            ingress_queue.front().set_payload( par_pkt.payload().substr( bytes_to_send, par_pkt.payload().size() - bytes_to_send ) );
+
+	    fprintf( stderr, "SENDING snipped packet, seqnum %u of size %lu, leftover %lu \n", to_send.id(), to_send.payload().size(), par_pkt.payload().size() - bytes_to_send );
+	    break;
 	  } else {
-	  	bytes_to_send -= packet.size();
+            bytes_to_send -= par_pkt.payload().size();
 	  }
-	  assert( bytes_to_send  >= 0 );
+	  
+          assert( bytes_to_send  >= 0 );
 	  int time_to_next = 0;
 	  if ( bytes_to_send == 0 || ingress_queue.empty() ) {
-	  	time_to_next = fallback_interval;
+            time_to_next = fallback_interval;
 	  }
-	  packet::PartialPacket par_pkt;
-	  par_pkt.set_payload( packet );
-	  par_pkt.set_bytes_to_follow( 0 );
+	  par_pkt.set_more_frags( false ); /* clear the more fragments flag on the last packet */
 	  net->send( par_pkt.SerializeAsString(), time_to_next );
-	  fprintf( stderr, "SENDING whole packet is size %lu \n", packet.size() );
+	  fprintf( stderr, "SENDING whole packet of seqnum %u, size %lu \n", par_pkt.id(), par_pkt.payload().size() );
 	  ingress_queue.pop();
-        }
-        else {
+        } else {
 	  net->send( string(0,'x'), fallback_interval );
 	  bytes_to_send = 0; /* Wasted forecast */
         }
@@ -120,7 +132,7 @@ int main( int argc, char *argv[] )
 					    time_of_next_transmission );
     }
 
-    /* wait */
+    /* Action 2 : Calculate wait time  */
     int wait_time = time_of_next_transmission - timestamp();
     if ( wait_time < 0 ) {
       wait_time = 0;
@@ -134,7 +146,7 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
 
-    /* receive */
+    /* Action 3 : receive on network */
     struct timeval tv;
     if ( sel.read( net->fd() ) ) {
       string packet( net->recv() );
@@ -142,31 +154,38 @@ int main( int argc, char *argv[] )
           continue;
       }
 
-      packet::PartialPacket rx;
+      fragment::PacketFragment rx;
       rx.ParseFromString( packet );
 
-      if ( rx.bytes_to_follow() != 0 ) {
-	limbo += rx.payload() ;
-	fprintf( stderr, "Still accumulating limbo, limbo size : %lu bytes to follow is %u \n", limbo.size(), rx.bytes_to_follow() );
-      }
-      else {
-	limbo += rx.payload() ;
-	write( tap_fd, limbo.c_str(), limbo.size() );
-	fprintf(stderr, "Received %lu bytes, written out of limbo %lu bytes\n", rx.payload().size(), limbo.size());
-	limbo = "";
-      }
+      /* Add to reassembler */
+      reassembler.add_fragment( rx );
 
-      gettimeofday( &tv, NULL );
-      cumulative_bytes += packet.size();
-      fprintf( stderr, "Rx packet : %lu bytes, cumulative : %lu bytes at time %f \n", packet.size(), cumulative_bytes, (double) tv.tv_sec+tv.tv_usec/1.0e6 );
+      /* Is reassembly over ? */
+      std::string assembled_packet = reassembler.ready_to_deliver( rx.id() );
+
+      if (  assembled_packet != "" ) {
+        fprintf( stderr, "REASSEMBLED Packet with seqnum %u with length %u \n", rx.id(), rx.length() );
+        if ( write( tap_fd, assembled_packet.c_str(), rx.length() ) < 0 ) {
+          perror( "tap device ");
+          exit( 1 );
+        }
+        gettimeofday( &tv, NULL );
+        cumulative_bytes += packet.size();
+      }
     }
 
-    /* read from tap0 */
+    /* Action 4: read from tap0 */
     if ( sel.read( tap_fd ) ) {
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      ingress_queue.push( packet );
+      fragment::PacketFragment par_pkt;
+      par_pkt.set_length( packet.size() ); /* length of original datagram */
+      par_pkt.set_id( count++ ); /* sequence number of original  datagram */
+      par_pkt.set_offset( 0 );   /* offset is 0 to begin with */
+      par_pkt.set_more_frags( true ); /* copied from IPv4 */
+      par_pkt.set_payload( packet ); /* The actual data */
+      ingress_queue.push( par_pkt );
     }
   }
 }
