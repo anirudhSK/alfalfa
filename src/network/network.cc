@@ -289,7 +289,7 @@ Connection::Connection( const char *key_str, const char *ip, int port ) /* clien
     MTU( SEND_MTU ),
     key( key_str ),
     session( key ),
-    interface( "usb0" ),
+    interface( "eth0" ),
     direction( TO_SERVER ),
     next_seq( 0 ),
     saved_timestamp( -1 ),
