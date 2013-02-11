@@ -48,7 +48,7 @@ int main( int argc, char *argv[] )
   sel.add_fd( net->fd() );
   sel.add_fd( tap_fd );
 
-  const int fallback_interval = 50;
+  const int fallback_interval = 10;
 
   /* wait to get attached */
   if ( server ) {
@@ -85,14 +85,18 @@ int main( int argc, char *argv[] )
     if ( ( bytes_to_send > 0 ) || ( time_of_next_transmission <= timestamp() ) ) {
       do {
         if ( !ingress_queue.empty() ) {
+          /* Queue has packets */
+          /* Get HOL packet fragment */
+          fragment::PacketFragment par_pkt = ingress_queue.front();
+
           if (bytes_to_send == 0) {
+            /* Check "window" i.e. bytes_to_send is empty, simply send fallback packet */
             net->send( string(0,'x'), fallback_interval );
             break;
-          }
 
-          fragment::PacketFragment par_pkt = ingress_queue.front();
-          if ( bytes_to_send < par_pkt.payload().size() ) {
-            /* fragment par_pkt into 2 packets : a new "to_send" pkt and a modified HOL pkt */
+          } else if ( bytes_to_send < par_pkt.payload().size() ) {
+            /* Window is not zero, but we don't have sufficient bytes to send HOL packet */
+            /* Fragment par_pkt into 2 packets : a new "to_send" pkt and a modified HOL pkt */
 
             /* new to_send */
             fragment::PacketFragment to_send ;
@@ -107,24 +111,35 @@ int main( int argc, char *argv[] )
             ingress_queue.front().set_offset( par_pkt.offset() + bytes_to_send );
             ingress_queue.front().set_payload( par_pkt.payload().substr( bytes_to_send, par_pkt.payload().size() - bytes_to_send ) );
 
-	    fprintf( stderr, "SENDING snipped packet, seqnum %u of size %lu, leftover %lu \n", to_send.id(), to_send.payload().size(), par_pkt.payload().size() - bytes_to_send );
+	    fprintf( stderr, "SENDING snipped packet, seqnum %u of size %lu, leftover %lu \n",
+                     to_send.id(), to_send.payload().size(), par_pkt.payload().size() - bytes_to_send );
 	    break;
+
 	  } else {
+            /* Window has sufficient bytes to send the whole packet, loop around to get more if possible */
             bytes_to_send -= par_pkt.payload().size();
+            assert( bytes_to_send  >= 0 );
+
+            /* By default, the next packet will follow this one immediately */
+            int time_to_next = 0;
+
+            /* But if our window is exhausted, or queue is empty, fallback to fallback_interval */
+            if ( bytes_to_send == 0 || ingress_queue.empty() ) {
+              time_to_next = fallback_interval;
+	    }
+
+            /* In any case, send current packet after clearing more_frags */
+            par_pkt.set_more_frags( false ); /* clear the more fragments flag on the last packet */
+	    net->send( par_pkt.SerializeAsString(), time_to_next );
+	    fprintf( stderr, "SENDING whole packet of seqnum %u, size %lu \n", par_pkt.id(), par_pkt.payload().size() );
+	    ingress_queue.pop();
 	  }
-	  
-          assert( bytes_to_send  >= 0 );
-	  int time_to_next = 0;
-	  if ( bytes_to_send == 0 || ingress_queue.empty() ) {
-            time_to_next = fallback_interval;
-	  }
-	  par_pkt.set_more_frags( false ); /* clear the more fragments flag on the last packet */
-	  net->send( par_pkt.SerializeAsString(), time_to_next );
-	  fprintf( stderr, "SENDING whole packet of seqnum %u, size %lu \n", par_pkt.id(), par_pkt.payload().size() );
-	  ingress_queue.pop();
+
         } else {
+          /* Queue is empty, simply send fallback packet and break */
 	  net->send( string(0,'x'), fallback_interval );
 	  bytes_to_send = 0; /* Wasted forecast */
+          break;
         }
       } while ( bytes_to_send > 0 );
 
