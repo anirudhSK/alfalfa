@@ -77,9 +77,13 @@ int main( int argc, char *argv[] )
   /* book keeping for reassembly */
   Reassembly reassembler;
 
+  /* Bytes in queue */
+  int32_t bytes_in_queue;
+
   /* loop */
   while ( 1 ) {
     int32_t bytes_to_send = net->window_size();
+    int32_t queue_size    = net->window_size();
 
     /* Action 1 : actually send, maybe */
     if ( ( bytes_to_send > 0 ) || ( time_of_next_transmission <= timestamp() ) ) {
@@ -111,6 +115,7 @@ int main( int argc, char *argv[] )
 	    net->send( par_pkt.SerializeAsString(), time_to_next );
 	    fprintf( stderr, "SENDING whole packet of seqnum %u, size %lu \n", par_pkt.id(), par_pkt.payload().size() );
 	    ingress_queue.pop();
+            bytes_in_queue -= par_pkt.payload().size();
 	  }
 
         } else {
@@ -124,6 +129,14 @@ int main( int argc, char *argv[] )
       time_of_next_transmission = std::max( timestamp() + fallback_interval,
 					    time_of_next_transmission );
     }
+
+    /* Action 1.5 : Knock out excess packets in the queue */
+    while ( bytes_in_queue > queue_size + 1440 ) { /* Have an additional one MTU in the queue */
+      auto drop_pkt = ingress_queue.front();
+      ingress_queue.pop(); // drop from front
+      bytes_in_queue -= drop_pkt.payload().size();
+    }
+
 
     /* Action 2 : Calculate wait time  */
     int wait_time = time_of_next_transmission - timestamp();
@@ -179,6 +192,7 @@ int main( int argc, char *argv[] )
       par_pkt.set_more_frags( true ); /* copied from IPv4 */
       par_pkt.set_payload( packet ); /* The actual data */
       ingress_queue.push( par_pkt );
+      bytes_in_queue += packet.size();
     }
   }
 }
