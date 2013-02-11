@@ -78,13 +78,14 @@ int main( int argc, char *argv[] )
     /* actually send, maybe */
     if ( ( bytes_to_send > 0 ) || ( time_of_next_transmission <= timestamp() ) ) {
       do {
-	if ( !ingress_queue.empty() ) {
+	if ( (!ingress_queue.empty()) and (bytes_to_send>0) ) {
 	  string packet( ingress_queue.front() );
           assert( bytes_to_send > 0 );
 	  bytes_to_send -= packet.size(); /* Allow overdraft */
 	  int time_to_next = 0;
 	  if ( bytes_to_send <= 0 || ingress_queue.empty() ) {
 	  	time_to_next = fallback_interval;
+                break;
 	  }
 	  net->send( packet, time_to_next );
 	  ingress_queue.pop();
