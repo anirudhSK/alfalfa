@@ -144,7 +144,7 @@ int main( int argc, char *argv[] )
     }
 
     const int cum_window = net->window_predict();
-    fprintf( stderr, "Cumulative window: %d packets\n", cum_window / 1500 );
+    fprintf( stderr, "Cumulative window: %.1f packets\n", cum_window / 1440.0 );
 
     /* read from tap0 */
     if ( sel.read( tap_fd ) ) {
