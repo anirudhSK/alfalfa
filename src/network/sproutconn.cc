@@ -50,13 +50,12 @@ void SproutConnection::send( const string & s, uint16_t time_to_next )
 
 int SproutConnection::window_predict( void ) const
 {
-  if ( operative_forecast.counts( TARGET_DELAY_TICKS ) <= 0 ) {
-    fprintf( stderr, "BAD Current forecast:" );
-    for ( int i = 0; i < operative_forecast.counts_size() - 1; i++ ) {
-      fprintf( stderr, " %d", operative_forecast.counts( i ) );
-    }
-    fprintf( stderr, "\n" );
+  fprintf( stderr, "Current forecast:" );
+  for ( int i = 0; i < operative_forecast.counts_size() - 1; i++ ) {
+    fprintf( stderr, " %d", operative_forecast.counts( i ) );
   }
+  fprintf( stderr, "\n" );
+
   return 1440 * operative_forecast.counts( TARGET_DELAY_TICKS );
 }
 
