@@ -50,7 +50,7 @@ void SproutConnection::send( const string & s, uint16_t time_to_next )
 
 int SproutConnection::window_predict( void ) const
 {
-  return 1440 * operative_forecast.counts( operative_forecast.counts_size() - 1 );
+  return 1440 * operative_forecast.counts( TARGET_DELAY_TICKS );
 }
 
 void SproutConnection::update_queue_estimate( void )
