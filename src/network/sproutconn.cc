@@ -48,37 +48,9 @@ void SproutConnection::send( const string & s, uint16_t time_to_next )
   update_queue_estimate();
 }
 
-int SproutConnection::window_predict( int future_ms ) const
+int SproutConnection::window_predict( void ) const
 {
-  /* get predicted queue bytes estimate */
-  uint64_t now = timestamp() + future_ms;
-  /* investigate decrementing current forecast */
-  int predicted_forecast_tick = current_forecast_tick;
-  int predicted_queue_bytes_estimate = current_queue_bytes_estimate;
-  int new_forecast_tick = std::min( int((now - remote_forecast_time) / conn.get_tick_length()),
-				    operative_forecast.counts_size() - 1 );
-
-  while ( predicted_forecast_tick < new_forecast_tick ) {
-    predicted_queue_bytes_estimate -= 1440 * operative_forecast.counts( predicted_forecast_tick );
-    if ( predicted_queue_bytes_estimate < 0 ) predicted_queue_bytes_estimate = 0;
-
-    predicted_forecast_tick++;
-  }
-
-  /* predict future window size */
-  int predicted_cumulative_delivery_tick = predicted_forecast_tick + TARGET_DELAY_TICKS;
-  if ( predicted_cumulative_delivery_tick >= operative_forecast.counts_size() ) {
-    predicted_cumulative_delivery_tick = operative_forecast.counts_size() - 1;
-  }
-
-  int predicted_cumulative_delivery_forecast = 1440 * ( operative_forecast.counts( predicted_cumulative_delivery_tick )
-							- operative_forecast.counts( current_forecast_tick ) );
-
-  int bytes_to_send = predicted_cumulative_delivery_forecast;// - predicted_queue_bytes_estimate;
-  if ( bytes_to_send < 0 ) {
-    return 0;
-  }
-  return bytes_to_send;
+  return operative_forecast.counts( operative_forecast.counts_size() - 1 );
 }
 
 void SproutConnection::update_queue_estimate( void )

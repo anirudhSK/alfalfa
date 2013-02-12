@@ -143,12 +143,15 @@ int main( int argc, char *argv[] )
       fprintf( stderr, "Rx packet : %lu bytes, cumulative : %lu bytes at time %f \n", packet.size(), cumulative_bytes, (double) tv.tv_sec+tv.tv_usec/1.0e6 );
     }
 
+    const int cum_window = net->window_predict();
+    fprintf( stderr, "Cumulative window: %d packets\n", cum_window / 1500 );
+
     /* read from tap0 */
     if ( sel.read( tap_fd ) ) {
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      if ( ingress_queue.total_length() < 2 * net->window_predict( 60 ) ) {
+      if ( ingress_queue.total_length() < cum_window ) {
 	ingress_queue.push( packet );
       }
     }
