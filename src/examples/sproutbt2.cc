@@ -3,12 +3,10 @@
 #include <assert.h>
 #include <list>
 
-#include "packet-fragment.pb.h"
 #include "sproutconn.h"
 #include "select.h"
 #include <sys/time.h>
 #include "tapdevice.hh"
-#include "reassembly.hh"
 
 using namespace std;
 using namespace Network;
@@ -26,8 +24,7 @@ int main( int argc, char *argv[] )
   int tap_fd = setup_tap();
 
   /* Queue incoming packets from tap0 */
-  uint32_t count = 0;
-  std::queue<fragment::PacketFragment> ingress_queue;
+  std::queue<string> ingress_queue;
 
   if ( argc > 1 ) {
     /* client */
@@ -48,7 +45,7 @@ int main( int argc, char *argv[] )
   sel.add_fd( net->fd() );
   sel.add_fd( tap_fd );
 
-  const int fallback_interval = 10;
+  const int fallback_interval = 50;
 
   /* wait to get attached */
   if ( server ) {
@@ -71,74 +68,41 @@ int main( int argc, char *argv[] )
 
   uint64_t time_of_next_transmission = timestamp() + fallback_interval;
 
-  fprintf( stderr, "Looping...\n" );
+  fprintf( stderr, "Looping...\n" );  
   unsigned long int cumulative_bytes = 0;
-
-  /* book keeping for reassembly */
-  Reassembly reassembler;
-
-  /* Bytes in queue */
-  int32_t bytes_in_queue;
 
   /* loop */
   while ( 1 ) {
-    int32_t bytes_to_send = net->window_size();
-    int32_t queue_size    = net->window_size();
+    int bytes_to_send = net->window_size();
+    bool sent = false;
 
-    /* Action 1 : actually send, maybe */
-    if ( ( bytes_to_send > 0 ) || ( time_of_next_transmission <= timestamp() ) ) {
-      do {
-        if ( !ingress_queue.empty() ) {
-          /* Queue has packets */
-          /* Get HOL packet fragment */
-          fragment::PacketFragment par_pkt = ingress_queue.front();
+    while ( (bytes_to_send > 0) && (!ingress_queue.empty()) ) {
+      /* close window */
+      string packet_to_send( ingress_queue.front() );
+      ingress_queue.pop();
+      bytes_to_send -= packet_to_send.size();
 
-          if (bytes_to_send == 0) {
-            /* Check "window" i.e. bytes_to_send is empty, simply send fallback packet */
-            net->send( string(0,'x'), fallback_interval );
-            break;
+      int time_to_next = 0;
+      if ( ingress_queue.empty() || (bytes_to_send <= 0) ) {
+	time_to_next = fallback_interval;
+      }
 
-          } else {
-            /* Window has sufficient bytes to send the whole packet, loop around to get more if possible */
-            bytes_to_send -= par_pkt.payload().size();
+      net->send( packet_to_send, time_to_next);
+      sent = true;
+    }
 
-            /* By default, the next packet will follow this one immediately */
-            int time_to_next = 0;
+    if ( (!sent) && (time_of_next_transmission <= timestamp()) ) {
+      /* send fallback packet */
+      net->send( "", fallback_interval );
+      sent = true;
+    }
 
-            /* But if our window is exhausted, or queue is empty, fallback to fallback_interval */
-            if ( bytes_to_send <= 0 || ingress_queue.empty() ) {
-              time_to_next = fallback_interval;
-	    }
-
-            /* In any case, send current packet after clearing more_frags */
-            par_pkt.set_more_frags( false ); /* clear the more fragments flag on the last packet */
-	    net->send( par_pkt.SerializeAsString(), time_to_next );
-	    fprintf( stderr, "SENDING whole packet of seqnum %u, size %lu \n", par_pkt.id(), par_pkt.payload().size() );
-	    ingress_queue.pop();
-            bytes_in_queue -= par_pkt.payload().size();
-	  }
-
-        } else {
-          /* Queue is empty, simply send fallback packet and break */
-	  net->send( string(0,'x'), fallback_interval );
-	  bytes_to_send = 0; /* Wasted forecast */
-          break;
-        }
-      } while ( bytes_to_send > 0 );
-
+    if ( sent ) {
       time_of_next_transmission = std::max( timestamp() + fallback_interval,
 					    time_of_next_transmission );
     }
 
-    /* Action 1.5 : Knock out excess packets in the queue */
-    while ( bytes_in_queue > queue_size + 1440 ) { /* Have an additional one MTU in the queue */
-      auto drop_pkt = ingress_queue.front();
-      ingress_queue.pop(); // drop from front
-      bytes_in_queue -= drop_pkt.payload().size();
-    }
-
-
-    /* Action 2 : Calculate wait time  */
+    /* wait */
     int wait_time = time_of_next_transmission - timestamp();
     if ( wait_time < 0 ) {
       wait_time = 0;
@@ -152,47 +116,25 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
 
-    /* Action 3 : receive on network */
+    /* receive */
     struct timeval tv;
     if ( sel.read( net->fd() ) ) {
       string packet( net->recv() );
-      if (packet.size() == 0 ) {
-          continue;
-      }
 
-      fragment::PacketFragment rx;
-      rx.ParseFromString( packet );
+      /* write into tap0 */
+      write( tap_fd, packet.c_str(), packet.size() );
 
-      /* Add to reassembler */
-      reassembler.add_fragment( rx );
-
-      /* Is reassembly over ? */
-      std::string assembled_packet = reassembler.ready_to_deliver( rx.id() );
-
-      if (  assembled_packet != "" ) {
-        fprintf( stderr, "REASSEMBLED Packet with seqnum %u with length %u \n", rx.id(), rx.length() );
-        if ( write( tap_fd, assembled_packet.c_str(), rx.length() ) < 0 ) {
-          perror( "tap device ");
-          exit( 1 );
-        }
-        gettimeofday( &tv, NULL );
-        cumulative_bytes += packet.size();
-      }
+      gettimeofday( &tv, NULL );
+      cumulative_bytes += packet.size();
+      fprintf( stderr, "Rx packet : %lu bytes, cumulative : %lu bytes at time %f \n", packet.size(), cumulative_bytes, (double) tv.tv_sec+tv.tv_usec/1.0e6 );
     }
 
-    /* Action 4: read from tap0 */
+    /* read from tap0 */
     if ( sel.read( tap_fd ) ) {
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      fragment::PacketFragment par_pkt;
-      par_pkt.set_length( packet.size() ); /* length of original datagram */
-      par_pkt.set_id( count++ ); /* sequence number of original  datagram */
-      par_pkt.set_offset( 0 );   /* offset is 0 to begin with */
-      par_pkt.set_more_frags( true ); /* copied from IPv4 */
-      par_pkt.set_payload( packet ); /* The actual data */
-      ingress_queue.push( par_pkt );
-      bytes_in_queue += packet.size();
+      ingress_queue.push( packet );
     }
   }
 }
