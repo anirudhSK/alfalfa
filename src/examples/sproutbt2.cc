@@ -140,7 +140,7 @@ int main( int argc, char *argv[] )
 
       gettimeofday( &tv, NULL );
       cumulative_bytes += packet.size();
-      fprintf( stderr, "Rx packet : %lu bytes, cumulative : %lu bytes at time %f \n", packet.size(), cumulative_bytes, (double) tv.tv_sec+tv.tv_usec/1.0e6 );
+      //      fprintf( stderr, "Rx packet : %lu bytes, cumulative : %lu bytes at time %f \n", packet.size(), cumulative_bytes, (double) tv.tv_sec+tv.tv_usec/1.0e6 );
     }
 
     const unsigned int cum_window = 2 * net->window_predict();
