@@ -11,6 +11,20 @@
 using namespace std;
 using namespace Network;
 
+class IngressQueue {
+private:
+  queue< string > _packets;
+  unsigned int _total_length;
+
+public:
+  IngressQueue() : _packets(), _total_length() {}
+  string front( void ) const { return _packets.front(); }
+  void pop( void ) { _total_length -= _packets.front().size(); _packets.pop(); }
+  void push( const string & s ) { _total_length += s.size(); _packets.push( s ); }
+  unsigned int total_length( void ) const { return _total_length; }
+  bool empty( void ) const { return _packets.empty(); }
+};
+
 int main( int argc, char *argv[] )
 {
   char *ip;
@@ -24,7 +38,7 @@ int main( int argc, char *argv[] )
   int tap_fd = setup_tap();
 
   /* Queue incoming packets from tap0 */
-  std::queue<string> ingress_queue;
+  IngressQueue ingress_queue;
 
   if ( argc > 1 ) {
     /* client */
@@ -134,7 +148,7 @@ int main( int argc, char *argv[] )
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      if ( ingress_queue.size() * 1440 < (int)net->window_predict( 40 ) ) {
+      if ( ingress_queue.total_length() < 2 * net->window_predict( 60 ) ) {
 	ingress_queue.push( packet );
       }
     }
