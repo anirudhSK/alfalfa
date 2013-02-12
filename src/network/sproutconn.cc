@@ -72,9 +72,9 @@ int SproutConnection::window_predict( int future_ms ) const
   }
 
   int predicted_cumulative_delivery_forecast = 1440 * ( operative_forecast.counts( predicted_cumulative_delivery_tick )
-							- operative_forecast.counts( predicted_forecast_tick ) );
+							- operative_forecast.counts( current_forecast_tick ) );
 
-  int bytes_to_send = predicted_cumulative_delivery_forecast - predicted_queue_bytes_estimate;
+  int bytes_to_send = predicted_cumulative_delivery_forecast;// - predicted_queue_bytes_estimate;
   if ( bytes_to_send < 0 ) {
     return 0;
   }
