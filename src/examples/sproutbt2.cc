@@ -134,7 +134,9 @@ int main( int argc, char *argv[] )
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      ingress_queue.push( packet );
+      if ( ingress_queue.size() * 1440 < (int)net->window_predict( 40 ) ) {
+	ingress_queue.push( packet );
+      }
     }
   }
 }
