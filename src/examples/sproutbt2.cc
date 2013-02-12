@@ -143,7 +143,7 @@ int main( int argc, char *argv[] )
       //      fprintf( stderr, "Rx packet : %lu bytes, cumulative : %lu bytes at time %f \n", packet.size(), cumulative_bytes, (double) tv.tv_sec+tv.tv_usec/1.0e6 );
     }
 
-    const unsigned int cum_window = 10 + 2 * net->window_predict();
+    const unsigned int cum_window = 1440 * 10 + 2 * net->window_predict();
     //    fprintf( stderr, "Cumulative window: %.1f packets\n", cum_window / 1440.0 );
 
     /* read from tap0 */
