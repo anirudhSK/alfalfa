@@ -2,28 +2,17 @@
 #include <string>
 #include <assert.h>
 #include <list>
+#include <sys/time.h>
 
 #include "sproutconn.h"
 #include "select.h"
-#include <sys/time.h>
 #include "tapdevice.hh"
+#include "ingress-queue.h"
+#include "tracked-packet.h"
+#include "codel.h"
 
 using namespace std;
 using namespace Network;
-
-class IngressQueue {
-private:
-  queue< string > _packets;
-  unsigned int _total_length;
-
-public:
-  IngressQueue() : _packets(), _total_length() {}
-  string front( void ) const { return _packets.front(); }
-  void pop( void ) { _total_length -= _packets.front().size(); _packets.pop(); }
-  void push( const string & s ) { _total_length += s.size(); _packets.push( s ); }
-  unsigned int total_length( void ) const { return _total_length; }
-  bool empty( void ) const { return _packets.empty(); }
-};
 
 int main( int argc, char *argv[] )
 {
@@ -39,6 +28,9 @@ int main( int argc, char *argv[] )
 
   /* Queue incoming packets from tap0 */
   IngressQueue ingress_queue;
+
+  /* Attach queue to CoDel */
+  CoDel codel_controller( ingress_queue );
 
   if ( argc > 1 ) {
     /* client */
@@ -92,8 +84,7 @@ int main( int argc, char *argv[] )
 
     while ( (bytes_to_send > 0) && (!ingress_queue.empty()) ) {
       /* close window */
-      string packet_to_send( ingress_queue.front() );
-      ingress_queue.pop();
+      string packet_to_send( codel_controller.deque().contents );
       bytes_to_send -= packet_to_send.size();
 
       int time_to_next = 0;
@@ -151,7 +142,7 @@ int main( int argc, char *argv[] )
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      ingress_queue.push( packet );
+      codel_controller.enque( packet );
       /* Do not drop packets @ input, no tail drop */
     }
   }
