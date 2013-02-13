@@ -4,7 +4,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 
-std::string PktClassifier::get_ip_header( void ) const
+protocol_t PktClassifier::get_ip_header( void ) const
 {
   /* Seek to the beginning of the IP header */
   const char* packet = _payload.c_str();
@@ -13,19 +13,7 @@ std::string PktClassifier::get_ip_header( void ) const
   auto hdr_len  = ip_hdr->ip_hl;
   auto protocol = ip_hdr->ip_p;
 
-  /* Find IP Header Length field */
-  printf( " Header length is %u, protocol is %d \n", hdr_len, protocol );
-
-  if ( protocol == TCP_PROTOCOL_NUM ) {
-    printf(" TCP Traffic \n");
-    get_tcp_header( _payload.substr( sizeof( struct ether_header ) + hdr_len*4 ));
-  } else if ( protocol == UDP_PROTOCOL_NUM ) {
-    printf(" UDP Traffic \n");
-    get_udp_header( _payload.substr( sizeof( struct ether_header ) + hdr_len*4 ));
-  } else if ( protocol == ICMP_PROTOCOL_NUM ) {
-    printf(" ICMP Traffic \n");
-  }
-  return "";
+  return protocol;
 }
 
 
@@ -39,7 +27,7 @@ std::string PktClassifier::get_udp_header( std::string ip_payload ) const
   return "";
 }
 
-std::string PktClassifier::get_tcp_ports( std::string ip_payload ) const
+std::string PktClassifier::get_tcp_header( std::string ip_payload ) const
 {
   auto tcp_hdr_with_data = ip_payload.c_str();
   const struct tcphdr* tcp_hdr = (struct tcphdr*) ( tcp_hdr_with_data );
