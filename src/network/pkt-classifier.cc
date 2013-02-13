@@ -11,7 +11,6 @@ uint16_t PktClassifier::get_eth_header( std::string ethernet_frame ) const
   const struct ether_header* eth_hdr;
   eth_hdr = (struct ether_header*) (eth_hdr_with_data); 
 
-  printf("Ether_type is %u \n", ntohs(eth_hdr->ether_type) );
   return ntohs(eth_hdr->ether_type);
 }
 
@@ -19,12 +18,9 @@ flowid_t PktClassifier::get_flow_id( std::string packet_str ) const
 {
   /* Parse eth frame first */
   auto eth_type = get_eth_header( packet_str.c_str() ); 
-  printf( "Eth_type is %u \n", eth_type );
   if (eth_type == ETHERTYPE_ARP ) {
-    printf( "ARP packet \n" );
     return (uint8_t)-1;
   } else if (eth_type == ETHERTYPE_IP ) {
-    printf( "IP packet \n" );
     /* Seek to the beginning of the IP header */
     const char* packet = packet_str.c_str();
     const struct ip* ip_hdr;
@@ -32,10 +28,8 @@ flowid_t PktClassifier::get_flow_id( std::string packet_str ) const
     auto hdr_len  = ip_hdr->ip_hl;
     auto protocol = ip_hdr->ip_p;
   
-    printf("Protocol is %d \n", protocol );
     return protocol;
   } else {
-    printf("Some other non-IP, non-ARP ethernet packet \n");
     return (uint8_t)-1;
   }
 }
@@ -46,7 +40,6 @@ std::string PktClassifier::get_udp_header( std::string udp_packet ) const
   const struct udphdr* udp_hdr = (struct udphdr*) ( udp_hdr_with_data );
   auto sport = ntohs( udp_hdr -> source );
   auto dport = ntohs( udp_hdr -> dest );
-  printf(" UDP source port %u, dst port %u \n", sport, dport );
   return "";
 }
 
@@ -56,7 +49,6 @@ std::string PktClassifier::get_tcp_header( std::string tcp_packet ) const
   const struct tcphdr* tcp_hdr = (struct tcphdr*) ( tcp_hdr_with_data );
   auto sport = ntohs( tcp_hdr -> source );
   auto dport = ntohs( tcp_hdr -> dest );
-  printf(" TCP source port %u, dst port %u \n", sport, dport );
   return "";
 }
 
