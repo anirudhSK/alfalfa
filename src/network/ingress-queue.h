@@ -13,6 +13,8 @@ class IngressQueue {
     unsigned int _total_length;
   
   public:
+    static const int QDISC_CODEL  = 0;
+    static const int QDISC_SPROUT = 1;
     IngressQueue() : _packets(), _total_length() {}
     TrackedPacket front( void ) const { return _packets.front(); }
     void pop( void ) { _total_length -= _packets.front().contents.size(); _packets.pop(); }
