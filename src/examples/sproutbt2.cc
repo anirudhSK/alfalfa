@@ -151,12 +151,8 @@ int main( int argc, char *argv[] )
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      if ( ingress_queue.total_length() <= cum_window ) {
-	ingress_queue.push( packet );
-      } else {
-	fprintf( stderr, "Dropping packet (len=%lu, total_length=%u, cum_window=%d)\n",
-		 packet.size(), ingress_queue.total_length(), cum_window );
-      }
+      ingress_queue.push( packet );
+      /* Do not drop packets @ input, no tail drop */
     }
   }
 }
