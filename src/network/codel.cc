@@ -8,7 +8,8 @@ CoDel::dodeque_result CoDel::dodeque ( )
             first_above_time = 0;
       } else {
             uint64_t sojourn_time = now - r.p.tstamp;
-            if (sojourn_time < target || _bytes_in_queue < maxpacket) {
+            printf(" Now is %lu, sojourn_time is %lu \n", now, sojourn_time );
+            if (sojourn_time < target || bytes() < maxpacket) {
                   // went below so we'll stay below for at least interval
                   first_above_time = 0;
             } else {
@@ -16,8 +17,10 @@ CoDel::dodeque_result CoDel::dodeque ( )
                         // just went above from below. if we stay above
                         // for at least interval we'll say it's ok to drop
                         first_above_time = now + interval;
+                        printf("Exceeded target, but wait for dropping \n" );
                   } else if (now >= first_above_time) {
                         r.ok_to_drop = true;
+                        printf("Good to drop \n");
                   }
             }
       }
@@ -28,6 +31,7 @@ CoDel::dodeque_result CoDel::dodeque ( )
 TrackedPacket CoDel::deque( )
 {
       uint64_t now = Network::timestamp();
+      printf(" In CoDel::deque(), time %lu \n", now );
       dodeque_result r = dodeque();
       if (r.p.contents.size() == 0 ) {
             // an empty queue takes us out of dropping state
@@ -86,6 +90,5 @@ CoDel::CoDel( IngressQueue & queue ) :
   drop_next(0),
   count(0),
   dropping(false),
-  _bytes_in_queue(0) ,
   drop_count(0)
 {}

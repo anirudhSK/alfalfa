@@ -37,6 +37,9 @@ class CoDel {
     /* Main codel routines */
     dodeque_result dodeque ( void );
     void drop ( TrackedPacket p);
+
+    /* Number of bytes in queue */
+    uint32_t bytes( void ) { return _queue.total_length(); };
     
   public :
     CoDel( IngressQueue & queue );
