@@ -39,9 +39,6 @@ int main( int argc, char *argv[] )
   /* Connect to tap0 and setup Sprout tunnel */
   int tap_fd = setup_tap();
 
-  /* Queue incoming packets from tap0 */
-  QueueGang ingress_queues = QueueGang( false );
-
   /* CoDel vs Sprout */
   int qdisc = 0;
 
@@ -65,6 +62,9 @@ int main( int argc, char *argv[] )
 
   fprintf( stderr, "Port bound is %d\n", net->port() );
   printf( "qdisc is %d \n", qdisc );   
+
+  /* Queue incoming packets from tap0 */
+  QueueGang ingress_queues = QueueGang( qdisc == IngressQueue::QDISC_CODEL );
 
   Select &sel = Select::get_instance();
   sel.add_fd( net->fd() );
