@@ -70,7 +70,9 @@ void QueueGang::enque( string packet )
     assert( _current_qlimit > 0 );
     if ( aggregate_length() > _current_qlimit ) {
       /* Drop from front of the longest queue */
+      auto hol_pkt = _flow_queues.at( longest_queue() ).front();
       _flow_queues.at( longest_queue() ).pop();
+      fprintf( stderr, "Sprout AQM dropped packet of size %d \n", hol_pkt.contents.size() );
     }
     _flow_queues.at( flow_id ).enque( packet );
   } else { 
