@@ -10,6 +10,7 @@
 #include "ingress-queue.h"
 #include "tracked-packet.h"
 #include "codel.h"
+#include "queue-gang.h"
 
 using namespace std;
 using namespace Network;
@@ -39,10 +40,7 @@ int main( int argc, char *argv[] )
   int tap_fd = setup_tap();
 
   /* Queue incoming packets from tap0 */
-  IngressQueue ingress_queue;
-
-  /* Attach queue to CoDel */
-  CoDel codel_controller( ingress_queue );
+  QueueGang ingress_queues = QueueGang( false );
 
   /* CoDel vs Sprout */
   int qdisc = 0;
@@ -103,19 +101,13 @@ int main( int argc, char *argv[] )
     int bytes_to_send = net->window_size();
     bool sent = false;
 
-    while ( (bytes_to_send > 0) && (!ingress_queue.empty()) ) {
+    while ( (bytes_to_send > 0) && (!ingress_queues.empty()) ) {
       /* close window */
-      string packet_to_send;
-      if ( qdisc == IngressQueue::QDISC_CODEL ) {
-        packet_to_send = codel_controller.deque().contents;
-      } else if ( qdisc == IngressQueue::QDISC_SPROUT ) {
-        packet_to_send = ingress_queue.front().contents;
-        ingress_queue.pop();
-      }
+      string packet_to_send = ingress_queues.get_next_packet();
       bytes_to_send -= packet_to_send.size();
 
       int time_to_next = 0;
-      if ( ingress_queue.empty() || (bytes_to_send <= 0) ) {
+      if ( ingress_queues.empty() || (bytes_to_send <= 0) ) {
 	time_to_next = fallback_interval;
       }
 
@@ -166,19 +158,7 @@ int main( int argc, char *argv[] )
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
-      if ( qdisc == IngressQueue::QDISC_CODEL ) {
-        /* Do not drop packets @ input, no tail drop */
-        codel_controller.enque( packet );
-      } else if ( qdisc == IngressQueue::QDISC_SPROUT ) {
-        /* Drop packets from tail if required */
-        const unsigned int cum_window = 1440 * 10 + 2 * net->window_predict();
-        if ( ingress_queue.total_length() <= cum_window ) {
-          ingress_queue.push( TrackedPacket( timestamp(), packet ) );
-        } else {
-          fprintf( stderr, "Dropping packet (len=%lu, total_length=%u, cum_window=%d)\n",
-          packet.size(), ingress_queue.total_length(), cum_window );
-        }
-      }
+      ingress_queues.enque( packet );
     }
   }
 }
