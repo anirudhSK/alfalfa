@@ -27,9 +27,9 @@ void QueueGang::create_new_queue( flowid_t flow_id )
   _flow_credits[ flow_id ] = 0;
   _flow_quantums[ flow_id ] = MTU_SIZE;
   _active_indicator[ flow_id ] = false;
-//  if ( _codel_enabled ) {
-//    _codel_servo_bank[ flow_id ] = CoDel( _flow_queues[ flow_id ] );
-//  }
+  if ( _codel_enabled ) {
+    _codel_servo_bank[ flow_id ] = CoDel();
+  }
 
 }
 
@@ -62,8 +62,19 @@ void QueueGang::enque( string packet )
 string QueueGang::deque( flowid_t flow_id )
 {
   assert( !_flow_queues.at( flow_id ).empty() );
-  TrackedPacket tracked_pkt = _flow_queues.at( flow_id ).deque();
-  return tracked_pkt.contents;
+  /* CoDel specific stuff on each queue */
+  if ( _codel_enabled ) {
+    TrackedPacket packet = _codel_servo_bank.at( flow_id ).deque( _flow_queues.at( flow_id ) );
+    if(packet.contents.size() > 0) {
+      string to_send = packet.contents;
+      return to_send;
+    } else {
+      return "";
+    }
+  } else {
+    TrackedPacket tracked_pkt = _flow_queues.at( flow_id ).deque();
+    return tracked_pkt.contents;
+  }
 }
 
 
