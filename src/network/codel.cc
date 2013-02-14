@@ -1,14 +1,14 @@
 #include "codel.h"
 
-CoDel::dodeque_result CoDel::dodeque ( ) 
+CoDel::dodeque_result CoDel::dodeque ( IngressQueue & ingress_queue ) 
   {
       uint64_t now = Network::timestamp();
-      dodeque_result r = { _queue.deque(), false };
+      dodeque_result r = { ingress_queue.deque(), false };
       if (r.p.contents.size() == 0 ) {
             first_above_time = 0;
       } else {
             uint64_t sojourn_time = now - r.p.tstamp;
-            if (sojourn_time < target || bytes() < maxpacket) {
+            if (sojourn_time < target || bytes( ingress_queue ) < maxpacket) {
                   // went below so we'll stay below for at least interval
                   first_above_time = 0;
             } else {
@@ -25,10 +25,10 @@ CoDel::dodeque_result CoDel::dodeque ( )
   }
 
 
-TrackedPacket CoDel::deque( )
+TrackedPacket CoDel::deque( IngressQueue & ingress_queue )
 {
       uint64_t now = Network::timestamp();
-      dodeque_result r = dodeque();
+      dodeque_result r = dodeque( ingress_queue );
       if (r.p.contents.size() == 0 ) {
             // an empty queue takes us out of dropping state
             dropping = 0;
@@ -42,7 +42,7 @@ TrackedPacket CoDel::deque( )
                   while (now >= drop_next && dropping) {
                         drop(r.p);
                         ++count;
-                        r = dodeque();
+                        r = dodeque( ingress_queue );
                         if (! r.ok_to_drop)
                               // leave dropping state
                               dropping = 0;
@@ -56,7 +56,7 @@ TrackedPacket CoDel::deque( )
                          ((now - drop_next < interval) ||
                           (now - first_above_time >= interval))) {
                    drop(r.p);
-                   r = dodeque();
+                   r = dodeque( ingress_queue );
                    dropping = 1;
                    // If we're in a drop cycle, the drop rate that controlled the queue
                    // on the last cycle is a good starting point to control it now.
@@ -75,13 +75,12 @@ void CoDel::drop (TrackedPacket p)
   fprintf(stderr," Codel dropped a packet with size %ld, count now at %d \n",p.contents.size(),drop_count);
 }
 
-void CoDel::enque( std::string payload )
+void CoDel::enque( IngressQueue & ingress_queue, std::string payload )
 {
-  _queue.enque( payload );
+  ingress_queue.enque( payload );
 }
 
-CoDel::CoDel( IngressQueue & queue ) :
-  _queue( queue ),
+CoDel::CoDel() :
   first_above_time( 0),
   drop_next(0),
   count(0),

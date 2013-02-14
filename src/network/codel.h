@@ -15,9 +15,6 @@ class CoDel {
          bool ok_to_drop;
     } dodeque_result; 
 
-    /* Ingress Queue */
-    IngressQueue & _queue;
-
     /* Codel - specific parameters */
     static const uint64_t    target=5 ;    /* 5   ms as per the spec */
     static const uint64_t  interval=100;   /* 100 ms as per the spec */
@@ -35,17 +32,17 @@ class CoDel {
     uint64_t control_law (uint64_t t) { return t + interval/sqrt(count);}
 
     /* Main codel routines */
-    dodeque_result dodeque ( void );
+    dodeque_result dodeque ( IngressQueue & ingress_queue );
     void drop ( TrackedPacket p);
 
     /* Number of bytes in queue */
-    uint32_t bytes( void ) { return _queue.total_length(); };
+    uint32_t bytes( const IngressQueue & ingress_queue ) { return ingress_queue.total_length(); };
     
   public :
-    CoDel( IngressQueue & queue );
+    CoDel();
     /* Interface to the outside world */
-    void enque( std::string payload );
-    TrackedPacket deque ( void ); 
+    void enque( IngressQueue & ingress_queue, std::string payload );
+    TrackedPacket deque ( IngressQueue & ingress_queue ); 
 
 };
 
