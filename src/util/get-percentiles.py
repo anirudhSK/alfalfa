@@ -5,7 +5,7 @@ rtt_list = []
 for line in fh.readlines() :
   if ( len(line.split()) == 0 ) :
     continue
-  elif ( line.split()[0] == "64" ):
+  elif ( line.split()[1] == "bytes" ):
     rtt=float(line.split()[6].split("=")[1])
     rtt_list += [ rtt ]
 rtt_list.sort()
