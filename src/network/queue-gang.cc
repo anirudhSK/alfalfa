@@ -13,10 +13,17 @@ QueueGang::QueueGang( bool t_codel_enabled ) :
   _codel_enabled( t_codel_enabled )
 {}
 
+unsigned int QueueGang::aggregate_length( void )
+{
+  return std::accumulate( _flow_queues.begin(), _flow_queues.end(),
+                          0, [&] (unsigned int acc, const std::pair<flowid_t,IngressQueue> & q)
+                             { return ( q.second.total_length() + acc ); } );
+}
+
 bool QueueGang::empty( void )
 {
   return   std::accumulate( _flow_queues.begin(), _flow_queues.end(),
-                            true, [&] (bool acc, const std::pair<uint8_t,IngressQueue> & q)
+                            true, [&] (bool acc, const std::pair<flowid_t,IngressQueue> & q)
                                   { return (q.second.empty() and acc); } );
 }
 

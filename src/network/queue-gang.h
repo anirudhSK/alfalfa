@@ -28,6 +28,9 @@ class QueueGang {
    /* Optional CoDel servo bank for all flows */
    std::map<flowid_t,CoDel> _codel_servo_bank;
    bool _codel_enabled;
+
+   /* size of all queues together */
+   unsigned int aggregate_length( void ); 
  
  public :
    /* Constructor */
