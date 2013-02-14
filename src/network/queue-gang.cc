@@ -72,6 +72,7 @@ void QueueGang::enque( string packet )
       /* Drop from front of the longest queue */
       _flow_queues.at( longest_queue() ).pop();
     }
+    _flow_queues.at( flow_id ).enque( packet );
   } else { 
     _flow_queues.at( flow_id ).enque( packet );
   }
