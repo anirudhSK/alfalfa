@@ -2,7 +2,7 @@
 #include "queue-gang.h"
 #include "tracked-packet.h"
 
-QueueGang::QueueGang( bool t_codel_enabled ) :
+QueueGang::QueueGang( bool qdisc ) :
   _flow_queues( std::map<flowid_t,IngressQueue>() ),
   _flow_credits(  std::map<flowid_t,double>() ),
   _flow_quantums( std::map<flowid_t,double>() ),
@@ -10,7 +10,8 @@ QueueGang::QueueGang( bool t_codel_enabled ) :
   _active_indicator( std::map<flowid_t,bool>() ),
   _current_flow( 0 ),
   _codel_servo_bank( std::map<flowid_t,CoDel> () ),
-  _codel_enabled( t_codel_enabled )
+  _qdisc( qdisc ),
+  _current_qlimit( 0 )
 {}
 
 unsigned int QueueGang::aggregate_length( void )
@@ -18,6 +19,15 @@ unsigned int QueueGang::aggregate_length( void )
   return std::accumulate( _flow_queues.begin(), _flow_queues.end(),
                           0, [&] (unsigned int acc, const std::pair<flowid_t,IngressQueue> & q)
                              { return ( q.second.total_length() + acc ); } );
+}
+
+flowid_t QueueGang::longest_queue( void )
+{
+  typedef std::pair<flowid_t,IngressQueue> FlowQ;
+  auto it = std::max_element( _flow_queues.begin(), _flow_queues.end(),
+                              [&] (const FlowQ &q1, const FlowQ &q2 )
+                              { return q1.second.total_length() < q2.second.total_length() ; } );
+  return it->first;
 }
 
 bool QueueGang::empty( void )
@@ -34,7 +44,7 @@ void QueueGang::create_new_queue( flowid_t flow_id )
   _flow_credits[ flow_id ] = 0;
   _flow_quantums[ flow_id ] = MTU_SIZE;
   _active_indicator[ flow_id ] = false;
-  if ( _codel_enabled ) {
+  if ( _qdisc == IngressQueue::QDISC_CODEL ) {
     _codel_servo_bank[ flow_id ] = CoDel();
   }
 
@@ -56,7 +66,15 @@ void QueueGang::enque( string packet )
   }
 
   /* enque into the right queue */
-  _flow_queues.at( flow_id ).enque( packet );
+  if ( _qdisc == IngressQueue::QDISC_SPROUT ) {
+    assert( _current_qlimit > 0 );
+    if ( aggregate_length() > _current_qlimit ) {
+      /* Drop from front of the longest queue */
+      _flow_queues.at( longest_queue() ).pop();
+    }
+  } else { 
+    _flow_queues.at( flow_id ).enque( packet );
+  }
 
   /* Update DRR structures */
   if ( _active_indicator.at ( flow_id ) == false ) {
@@ -70,7 +88,7 @@ string QueueGang::deque( flowid_t flow_id )
 {
   assert( !_flow_queues.at( flow_id ).empty() );
   /* CoDel specific stuff on each queue */
-  if ( _codel_enabled ) {
+  if ( _qdisc == IngressQueue::QDISC_CODEL ) {
     TrackedPacket packet = _codel_servo_bank.at( flow_id ).deque( _flow_queues.at( flow_id ) );
     if(packet.contents.size() > 0) {
       string to_send = packet.contents;

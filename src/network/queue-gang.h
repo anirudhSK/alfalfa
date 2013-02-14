@@ -27,20 +27,15 @@ class QueueGang {
 
    /* Optional CoDel servo bank for all flows */
    std::map<flowid_t,CoDel> _codel_servo_bank;
-   bool _codel_enabled;
+   int _qdisc;
 
-   /* size of all queues together */
-   unsigned int aggregate_length( void ); 
- 
- public :
-   /* Constructor */
-   QueueGang( bool t_codel_enabled );
+   /* SproutAQM functions */
+   unsigned int _current_qlimit;
+   unsigned int aggregate_length( void );
+   flowid_t longest_queue( void );
 
    /* deque from a particular flow */
    string deque( flowid_t flow_id );
-
-   /* Check if all queues are empty */
-   bool empty();
 
    /* Create a new queue for a flow */
    void create_new_queue( flowid_t flow_id );
@@ -48,10 +43,19 @@ class QueueGang {
    /* Have I already seen the flow */
    bool already_seen( flowid_t flow_id );
 
+ public :
+   /* Constructor */
+   QueueGang( bool t_codel_enabled );
+
+   /* Check if all queues are empty */
+   bool empty();
+
    /* Interface to the outside world */
    void enque( string packet );
    string get_next_packet( void ); /* Use DRR */
 
+   /* Set qlimit from sproutbt2.cc */
+   void set_qlimit( unsigned int qlimit ) { _current_qlimit = qlimit; };
 };
 
 #endif

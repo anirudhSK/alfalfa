@@ -64,7 +64,7 @@ int main( int argc, char *argv[] )
   printf( "qdisc is %d \n", qdisc );   
 
   /* Queue incoming packets from tap0 */
-  QueueGang ingress_queues = QueueGang( qdisc == IngressQueue::QDISC_CODEL );
+  QueueGang ingress_queues = QueueGang( qdisc );
 
   Select &sel = Select::get_instance();
   sel.add_fd( net->fd() );
@@ -158,6 +158,10 @@ int main( int argc, char *argv[] )
       char buffer[1600];
       int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
       string packet( buffer, nread );
+      if ( qdisc == IngressQueue::QDISC_SPROUT ) {
+        const unsigned int cum_window = 1440 * 10 + 2 * net->window_predict();
+        ingress_queues.set_qlimit( cum_window ); 
+      }
       ingress_queues.enque( packet );
     }
   }
