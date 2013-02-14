@@ -12,7 +12,7 @@ using namespace std;
 
 class QueueGang {
  private :
-   static const int MTU_SIZE = 1440;
+   static const int MTU_SIZE = 1434;
 
    typedef uint8_t flowid_t;
    std::map<flowid_t,IngressQueue> _flow_queues;
