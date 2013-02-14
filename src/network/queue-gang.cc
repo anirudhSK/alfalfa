@@ -69,10 +69,6 @@ string QueueGang::deque( flowid_t flow_id )
 
 string QueueGang::get_next_packet()
 {
-  printf(" Flow ids : ");
-  std::for_each( _flow_queues.begin(), _flow_queues.end(), [&] (const std::pair<flowid_t,IngressQueue> & p)
-                                                           { printf(" %u ", p.first ); } );
-  printf(" \n ");
   string p;
   if ( _active_list.empty() ) {
     return p;
