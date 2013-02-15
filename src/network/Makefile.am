@@ -3,4 +3,4 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libmoshnetwork.a
 
-libmoshnetwork_a_SOURCES = network.cc network.h networktransport.cc networktransport.h transportfragment.cc transportfragment.h transportsender.cc transportsender.h transportstate.h compressor.cc compressor.h sproutconn.cc sproutconn.h tapdevice.cc tapdevice.hh reassembly.cc reassembly.hh pkt-classifier.cc pkt-classifier.h codel.cc codel.h ingress-queue.h tracked-packet.h queue-gang.cc queue-gang.h
+libmoshnetwork_a_SOURCES = network.cc network.h networktransport.cc networktransport.h transportfragment.cc transportfragment.h transportsender.cc transportsender.h transportstate.h compressor.cc compressor.h sproutconn.cc sproutconn.h tapdevice.cc tapdevice.hh reassembly.cc reassembly.hh pkt-classifier.cc pkt-classifier.h codel.cc codel.h ingress-queue.h tracked-packet.h queue-gang.cc queue-gang.h packetsocket.cc packetsocket.hh
