@@ -11,6 +11,7 @@
 #include "tracked-packet.h"
 #include "codel.h"
 #include "queue-gang.h"
+#include "packetsocket.hh"
 
 using namespace std;
 using namespace Network;
@@ -36,13 +37,13 @@ int main( int argc, char *argv[] )
 
   bool server = true;
 
-  /* Connect to tap0 and setup Sprout tunnel */
-  int tap_fd = setup_tap();
-
   /* CoDel vs Sprout */
   int qdisc = 0;
 
-  if ( argc == 4 ) {
+  /* Interface to the ethernet */
+  const char* interface_name;
+
+  if ( argc == 5 ) {
     /* client */
 
     server = false;
@@ -51,24 +52,31 @@ int main( int argc, char *argv[] )
     port = atoi( argv[ 2 ] );
 
     qdisc = get_qdisc( argv[ 3 ] );
+    interface_name = argv[ 4 ];
+
     net = new Network::SproutConnection( "4h/Td1v//4jkYhqhLGgegw", ip, port );
-  } else if ( argc == 2 ) {
-    qdisc = get_qdisc( argv[ 1 ] ); 
+  } else if ( argc == 3 ) {
+    /* server */
+
+    qdisc = get_qdisc( argv[ 1 ] );
+    interface_name = argv[ 2 ];
+
     net = new Network::SproutConnection( NULL, NULL );
   } else {
     fprintf( stderr, "Invalid number of arguments \n" );
     exit(-1);
   }
 
+  PacketSocket eth_socket( interface_name, string(), string() );
   fprintf( stderr, "Port bound is %d\n", net->port() );
   printf( "qdisc is %d \n", qdisc );   
 
-  /* Queue incoming packets from tap0 */
+  /* Queue incoming packets from ethernet interface */
   QueueGang ingress_queues = QueueGang( qdisc );
 
   Select &sel = Select::get_instance();
   sel.add_fd( net->fd() );
-  sel.add_fd( tap_fd );
+  sel.add_fd( eth_socket.fd() );
 
   const int fallback_interval = 50;
 
@@ -145,19 +153,19 @@ int main( int argc, char *argv[] )
     if ( sel.read( net->fd() ) ) {
       string packet( net->recv() );
 
-      /* write into tap0 */
-      write( tap_fd, packet.c_str(), packet.size() );
+      /* write into ethernet interface */
+      eth_socket.send_raw( packet );
 
       gettimeofday( &tv, NULL );
       cumulative_bytes += packet.size();
     }
 
 
-    /* read from tap0 */
-    if ( sel.read( tap_fd ) ) {
-      char buffer[1600];
-      int nread = read( tap_fd, (void*) buffer, sizeof(buffer) );
-      string packet( buffer, nread );
+    /* read from ethernet interface */
+    if ( sel.read( eth_socket.fd() ) ) {
+      vector<string> recv_strings = eth_socket.recv_raw();
+      assert ( recv_strings.size() <= 1 );
+      string packet = ( recv_strings.size() == 0 ) ? "" : recv_strings.at( 0 );
       if ( qdisc == IngressQueue::QDISC_SPROUT ) {
         const unsigned int cum_window = 1440 * 10 + 2 * net->window_predict();
         ingress_queues.set_qlimit( cum_window ); 
