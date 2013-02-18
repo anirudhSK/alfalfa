@@ -12,6 +12,7 @@
 #include "codel.h"
 #include "queue-gang.h"
 #include "packetsocket.hh"
+#include "pkt-classifier.h"
 
 using namespace std;
 using namespace Network;
@@ -26,6 +27,40 @@ int get_qdisc( const char* qdisc_str )
     fprintf( stderr, "Invalid QDISC \n" );
     exit(-1);
   }
+}
+
+void skype_delays( std::string packet, uint64_t ts, std::string action )
+{
+  static PktClassifier skype_classifier;
+  std::string hash_str = skype_classifier.pkt_hash( packet );
+  uint8_t flow_id = skype_classifier.get_flow_id( packet ); 
+  const MACAddress destination_address( packet.substr( 0, 6 ) );
+  if ( destination_address.is_broadcast() ){
+    /* if pkt is broadcast, return, theres lots of network chatter */
+    return;
+
+  } else if ( flow_id != PktClassifier::UDP_PROTOCOL_NUM ) {
+    /* Its not Skype, because the flow type isn't UDP */
+    return;
+
+  } else if ( hash_str == "" ) {
+    /* Too small to have a unique hash */
+    return;
+
+  } else {
+    printf( " Skype Packet %s %lu hash : ", action.c_str(), ts );
+    for( uint32_t i=0; i < hash_str.size(); i++) {
+      printf("%02x",(unsigned char)hash_str[i]);
+    }
+    printf( "\n");
+  }
+}
+
+uint64_t get_absolute_us()
+{
+  struct timeval tv;
+  gettimeofday( &tv, NULL );
+  return (uint64_t)tv.tv_sec*1000000 + (uint64_t)tv.tv_usec;
 }
 
 int main( int argc, char *argv[] )
@@ -164,6 +199,7 @@ int main( int argc, char *argv[] )
       /* write into ethernet interface */
       if ( packet.size() != 0 ) {
         eth_socket.send_raw( packet );
+        skype_delays( packet, get_absolute_us(), "SENT OUT " );
       }
     }
 
@@ -178,6 +214,7 @@ int main( int argc, char *argv[] )
       }
       for ( auto it = recv_strings.begin(); it != recv_strings.end(); it++ ) {
         if ( ( *it).size() != 0 ) {
+          skype_delays( *it, get_absolute_us(), "RECEIVED IN " );
           ingress_queues.enque( *it );
         }
       }
