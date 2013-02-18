@@ -67,6 +67,12 @@ PacketSocket::PacketSocket( const std::string & s_interface,
   }
 }
 
+PacketSocket::PacketSocket()
+  : sock ( -1 ),
+    _from_filter( MACAddress::parse_human( "" ) ),
+    _to_filter( MACAddress::parse_human(""))
+{}
+
 vector< string > PacketSocket::recv_raw( void )
 {
   vector< string > ret;
