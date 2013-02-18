@@ -17,7 +17,7 @@ uint16_t PktClassifier::get_eth_header( std::string ethernet_frame ) const
 flowid_t PktClassifier::get_flow_id( std::string packet_str ) const
 {
   /* Parse eth frame first */
-  auto eth_type = get_eth_header( packet_str.c_str() ); 
+  auto eth_type = get_eth_header( packet_str );
   if (eth_type == ETHERTYPE_ARP ) {
     return (uint8_t)-1;
   } else if (eth_type == ETHERTYPE_IP ) {
@@ -30,6 +30,7 @@ flowid_t PktClassifier::get_flow_id( std::string packet_str ) const
   
     return protocol;
   } else {
+    printf( " Some other protocol type, packet is %x \n", packet_str.c_str() );
     return (uint8_t)-1;
   }
 }
