@@ -43,7 +43,10 @@ int main( int argc, char *argv[] )
   /* Interface to the ethernet */
   const char* interface_name;
 
-  if ( argc == 5 ) {
+  /* Client's MAC address */
+  const char* client_mac;
+
+  if ( argc == 6 ) {
     /* client */
 
     server = false;
@@ -54,20 +57,27 @@ int main( int argc, char *argv[] )
     qdisc = get_qdisc( argv[ 3 ] );
     interface_name = argv[ 4 ];
 
+    client_mac = argv[ 5 ];
     net = new Network::SproutConnection( "4h/Td1v//4jkYhqhLGgegw", ip, port );
-  } else if ( argc == 3 ) {
+  } else if ( argc == 4 ) {
     /* server */
 
     qdisc = get_qdisc( argv[ 1 ] );
     interface_name = argv[ 2 ];
 
+    client_mac = argv[ 3 ];
     net = new Network::SproutConnection( NULL, NULL );
   } else {
     fprintf( stderr, "Invalid number of arguments \n" );
     exit(-1);
   }
 
-  PacketSocket eth_socket( interface_name, string(), string() );
+  PacketSocket eth_socket ;
+  if (server) {
+    eth_socket = PacketSocket( interface_name, string(), client_mac );
+  } else {
+    eth_socket = PacketSocket( interface_name, client_mac, string() );
+  }
   fprintf( stderr, "Port bound is %d\n", net->port() );
   printf( "qdisc is %d \n", qdisc );   
 
@@ -165,12 +175,13 @@ int main( int argc, char *argv[] )
     if ( sel.read( eth_socket.fd() ) ) {
       vector<string> recv_strings = eth_socket.recv_raw();
       assert ( recv_strings.size() <= 1 );
-      string packet = ( recv_strings.size() == 0 ) ? "" : recv_strings.at( 0 );
       if ( qdisc == IngressQueue::QDISC_SPROUT ) {
         const unsigned int cum_window = 1440 * 10 + 2 * net->window_predict();
         ingress_queues.set_qlimit( cum_window ); 
       }
-      ingress_queues.enque( packet );
+      for ( auto it = recv_strings.begin(); it != recv_strings.end(); it++ ) {
+        ingress_queues.enque( *it );
+      }
     }
   }
 }
