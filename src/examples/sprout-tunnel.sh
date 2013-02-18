@@ -47,4 +47,4 @@ sudo xterm -e ~/BeatingSkype/SproutTunnel/alfalfa/src/examples/sproutbt2 10.0.0.
 # Get tap-clients MAC address
 tap_client_mac=`ifconfig tap-client | grep HWaddr | awk '{print $5}'`
 
-sudo xterm -e ~/BeatingSkype/multisend/sender/cellsim-tap ~/BeatingSkype/multisend/sender/pps-examples/1000.pps ~/BeatingSkype/multisend/sender/pps-examples/1000.pps $tap_client_mac -1 tap-relay tap-client &
+sudo xterm -e ~/BeatingSkype/SproutTunnel/multisend/sender/cellsim-tap ~/BeatingSkype/multisend/sender/pps-examples/1000.pps ~/BeatingSkype/multisend/sender/pps-examples/1000.pps $tap_client_mac -1 tap-relay tap-client &
