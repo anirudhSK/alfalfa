@@ -24,12 +24,13 @@ class PacketSocket
 private:
   int sock;
 
-  const MACAddress _from_filter;
-  const MACAddress _to_filter;
+  MACAddress _from_filter;
+  MACAddress _to_filter;
 
   int get_index( const std::string & name ) const;
 
 public:
+  PacketSocket();
   PacketSocket( const std::string & s_interface,
 		const std::string & s_from_filter,
 		const std::string & s_to_filter );
