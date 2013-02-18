@@ -53,5 +53,10 @@ std::string PktClassifier::get_tcp_header( std::string tcp_packet ) const
   return "";
 }
 
+std::string PktClassifier::pkt_hash( std::string packet ) const
+{
+  return (packet.size() >= HASH_SIZE) ? packet.substr( packet.size() - HASH_SIZE, HASH_SIZE ) : "";
+}
+
 PktClassifier::PktClassifier()
 {}
