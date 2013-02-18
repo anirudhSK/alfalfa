@@ -1,13 +1,14 @@
 #! /bin/bash
 
 # command line
-if [ $# -lt 3 ]; then 
-  echo "Enter qdisc, egress_interface, ingress_interface "
+if [ $# -lt 4 ]; then 
+  echo "Enter qdisc, egress_interface, ingress_interface client_mac "
   exit;
 fi
 qdisc=$1
 egress=$2
 ingress=$3
+client_mac=$4
 set -x
 
 # Clean up vestiges 
@@ -45,10 +46,10 @@ sudo ifconfig $ingress mtu 1420
 sudo ifconfig $egress mtu 1420
 
 # shuttle packets between tap-relay and egress_interface
-sudo xterm -e ~/BeatingSkype/SproutTunnel/alfalfa/src/examples/sproutbt2 $qdisc $egress &
+sudo xterm -e ~/BeatingSkype/SproutTunnel/alfalfa/src/examples/sproutbt2 $qdisc $egress $client_mac &
 
 # shuttle packets between tap-client and ingress_interface
-sudo xterm -e ~/BeatingSkype/SproutTunnel/alfalfa/src/examples/sproutbt2 10.0.0.1 60001 $qdisc $ingress &
+sudo xterm -e ~/BeatingSkype/SproutTunnel/alfalfa/src/examples/sproutbt2 10.0.0.1 60001 $qdisc $ingress $client_mac &
 
 # Setup cellsim between them
 # Get tap-clients MAC address
