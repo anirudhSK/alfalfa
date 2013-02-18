@@ -112,7 +112,6 @@ int main( int argc, char *argv[] )
   uint64_t time_of_next_transmission = timestamp() + fallback_interval;
 
   fprintf( stderr, "Looping...\n" );  
-  unsigned long int cumulative_bytes = 0;
 
   /* loop */
   while ( 1 ) {
@@ -159,15 +158,13 @@ int main( int argc, char *argv[] )
     }
 
     /* receive */
-    struct timeval tv;
     if ( sel.read( net->fd() ) ) {
       string packet( net->recv() );
 
       /* write into ethernet interface */
-      eth_socket.send_raw( packet );
-
-      gettimeofday( &tv, NULL );
-      cumulative_bytes += packet.size();
+      if ( packet.size() != 0 ) {
+        eth_socket.send_raw( packet );
+      }
     }
 
 
@@ -180,7 +177,9 @@ int main( int argc, char *argv[] )
         ingress_queues.set_qlimit( cum_window ); 
       }
       for ( auto it = recv_strings.begin(); it != recv_strings.end(); it++ ) {
-        ingress_queues.enque( *it );
+        if ( ( *it).size() != 0 ) {
+          ingress_queues.enque( *it );
+        }
       }
     }
   }
