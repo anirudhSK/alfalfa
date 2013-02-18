@@ -18,13 +18,15 @@ sudo killall -s9 cellsim sproutbt2
 sudo tunctl -t tap-relay
 sudo ifconfig tap-relay 10.0.0.1 netmask 255.255.255.0 up
 sudo ifconfig tap-relay mtu 1500
-sudo ethtool --offload  tap-relay gso off  tso off gro off
+sudo ethtool --offload  tap-relay gso off  tso off gro off ufo off lro off
+sudo ethtool --offload  $ingress gso off tso off gro off ufo off lro off
 
 # Setup Sprout Relay
 sudo tunctl -t tap-client
 sudo ifconfig tap-client 10.0.0.2 netmask 255.255.255.0 up
 sudo ifconfig tap-client mtu 1500
-sudo ethtool --offload  tap-client gso off  tso off gro off
+sudo ethtool --offload  tap-client gso off  tso off gro off ufo off lro off
+sudo ethtool --offload  $egress gso off tso off gro off ufo off lro off
 
 # Allow loopback packets to be received
 echo 0 | sudo tee /proc/sys/net/ipv4/conf/all/rp_filter;
