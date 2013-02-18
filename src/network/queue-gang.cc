@@ -72,7 +72,7 @@ void QueueGang::enque( string packet )
       /* Drop from front of the longest queue */
       auto hol_pkt = _flow_queues.at( longest_queue() ).front();
       _flow_queues.at( longest_queue() ).pop();
-      fprintf( stderr, "Sprout AQM dropped packet of size %d \n", hol_pkt.contents.size() );
+      fprintf( stderr, "Sprout AQM dropped packet of size %lu \n", hol_pkt.contents.size() );
     }
     _flow_queues.at( flow_id ).enque( packet );
   } else { 
@@ -117,6 +117,10 @@ string QueueGang::get_next_packet()
   if ( _flow_credits.at ( _current_flow ) < pkt_size ) { /* do not add until you deplete credits */
     _flow_credits.at( _current_flow ) += _flow_quantums.at( _current_flow );
   }
+  printf("Flow Qs : ");
+  std::for_each( _flow_queues.begin(), _flow_queues.end(),
+                 [&] (const std::pair<flowid_t,IngressQueue> & p ) { printf (" %u:%u ", p.first, p.second.total_length() ); } ); 
+  printf("\n");
   assert ( !_flow_queues.at( _current_flow ).empty() ) ;
   assert ( pkt_size <= _flow_credits.at( _current_flow ) ) ;
   _flow_credits.at( _current_flow ) -= pkt_size;
