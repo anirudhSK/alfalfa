@@ -6,7 +6,7 @@ SSP protocol as Mosh, the mobile shell.
 ```
 build-essential
 autotools-dev
-libboost-all-ev
+libboost-all-dev
 ```
 ## Runtime requisites:
 ```
