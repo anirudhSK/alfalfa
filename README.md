@@ -3,24 +3,33 @@ that works well over cellular wireless networks. It uses the same
 SSP protocol as Mosh, the mobile shell.
 
 # Prerequisites (Debian/Ubuntu):
-> build-essential
-> autotools-dev
-> libboost-all-ev
-
+```
+build-essential
+autotools-dev
+libboost-all-ev
+```
 # Runtime requisites:
-> uml-utilities
+```
+uml-utilities
+```
 
 # How to build (Linux):
-> ./autogen.sh
-> ./configure
-> LANG=C make -j3
+```
+./autogen.sh
+./configure
+LANG=C make -j3
+```
 
 > # Build client/server
-> cd source/examples
-> make sproutbt2
+```
+cd source/examples
+make sproutbt2
+```
 
 # How to build (OS X):
-> cd macosx
-> ./buildsh
+```
+cd macosx
+./buildsh
+```
 
 This fails, SO_BINDTODEVICE does not exist on OS X
