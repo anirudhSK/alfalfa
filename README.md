@@ -7,10 +7,9 @@ See http://alfalfa.mit.edu for instructions.
 ## Prerequisites (Debian/Ubuntu):
 ```
 build-essential
-autotools-dev
-libboost-math1.50-dev 
-libboost-math1.50.0 
-libprotobuf7 or libprotobuf8
+autoconf
+automake
+libboost-math-dev 
 libprotobuf-dev 
 ```
 ## Runtime requisites:
@@ -74,7 +73,7 @@ sudo ifconfig tap-client 10.0.0.2 netmask 255.255.255.0 up
 sudo ifconfig tap-client mtu 1500
 sudo ethtool --offload  tap-client gso off  tso off gro off ufo off lro off
 sudo ethtool --offload eth0 gso off tso off gro off ufo off lro off
-sudo ./sproutbt2 10.0.0.1 60001 Sprout eth0 00:1a:92:9d:69:85
+sudo ./src/examples/sproutbt2 10.0.0.1 60001 Sprout eth0 00:1a:92:9d:69:85
 ```
 
 Snips from client mode output:
