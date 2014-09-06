@@ -34,7 +34,8 @@
 #define COMPLETE_TERMINAL_HPP
 
 #include <list>
-#include <stdint.h>
+#include <cstdint>
+#include <limits>
 
 #include "parser.h"
 #include "terminal.h"
