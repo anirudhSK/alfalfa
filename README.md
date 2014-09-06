@@ -50,3 +50,6 @@ Client
 ```
 ./src/examples/sproutbt2 ip port qdisc interface_name client_mac
 ```
+
+Arguments:
+> qdisc, either 'CoDel' or 'Sprout'
