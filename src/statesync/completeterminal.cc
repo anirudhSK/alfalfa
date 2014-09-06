@@ -154,7 +154,7 @@ void Complete::register_input_frame( uint64_t n, uint64_t now )
 int Complete::wait_time( uint64_t now ) const
 {
   if ( input_history.size() < 2 ) {
-    return INT_MAX;
+    return std::numeric_limits<int64_t>::max();
   }
 
   input_history_type::const_iterator it = input_history.begin();
