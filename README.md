@@ -37,7 +37,7 @@ cd macosx
 ./buildsh
 ```
 
-This fails, SO_BINDTODEVICE does not exist on OS X
+This fails, SO_BINDTODEVICE does not exist on OS X. This would be needed to bind to a specific network interface (ex: eth0, en1). On OS X you can bind to an IP address.
 
 ## How to run:
 
